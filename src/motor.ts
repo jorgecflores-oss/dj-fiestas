@@ -243,6 +243,12 @@ export function useMotorDj(duracionConfigS: number) {
     }
   }
 
+  // Aviso persistente (cuadro rojo de arriba) para un deck que no es el actual.
+  function avisarFalloSiguiente(id: IdDeck, titulo: string, mensaje: string) {
+    const tema = titulo ? ` "${titulo}"` : ''
+    setAviso(`Deck ${id}${tema}: ${mensaje}. Elegí otro tema.`)
+  }
+
   function manejarError(id: IdDeck, codigo: number) {
     const mensaje = MENSAJES_ERROR[codigo] ?? `Error del reproductor (${codigo})`
     registrar(`Deck ${id}: ERROR código ${codigo} (${mensaje})`)
@@ -253,6 +259,8 @@ export function useMotorDj(duracionConfigS: number) {
     if (eraActual) {
       setActual(null)
       setAviso(`El tema actual falló: ${mensaje}`)
+    } else {
+      avisarFalloSiguiente(id, decksRef.current[id].titulo, mensaje)
     }
     crearTimeout(() => {
       if (decksRef.current[id].estado === 'error') liberar(id)
@@ -402,6 +410,7 @@ export function useMotorDj(duracionConfigS: number) {
     if (!(await esperarListo(id)) || generacion.current[id] !== miGen) {
       if (generacion.current[id] === miGen) {
         actualizarDeck(id, { estado: 'error', mensaje: 'El reproductor no cargó' })
+        avisarFalloSiguiente(id, tema.titulo, 'El reproductor no cargó')
         crearTimeout(() => liberar(id), LIBERAR_ERROR_MS)
       }
       return
@@ -417,6 +426,7 @@ export function useMotorDj(duracionConfigS: number) {
     if (!ok) {
       registrar(`Deck ${id}: precarga falló o venció (${Math.round(ahora() - t0)} ms)`)
       actualizarDeck(id, { estado: 'error', mensaje: 'No se pudo precargar el tema' })
+      avisarFalloSiguiente(id, tema.titulo, 'No se pudo precargar el tema')
       crearTimeout(() => {
         if (decksRef.current[id].estado === 'error') liberar(id)
       }, LIBERAR_ERROR_MS)

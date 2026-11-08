@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { RefObject } from 'react'
 import { guardarTexto, leerTexto } from './almacen.ts'
 import { buscarVideos, detallesVideo, guardarClave, leerClave, mensajeError } from './busqueda.ts'
@@ -7,7 +7,9 @@ import { useMotorDj } from './motor.ts'
 import type { DatosDeck, EstadoDeck, IdDeck } from './motor.ts'
 import { borrar, obtenerLineas, registrar, suscribir, textoCompleto } from './registro.ts'
 import Sirena from './Sirena.tsx'
-import { extraerIdVideo, formatoTiempo } from './utilidades.ts'
+import type { ColorInsignia } from './utilidades.ts'
+import { extraerIdVideo, formatoTiempo, insigniaDeck, sePuedeActualizar } from './utilidades.ts'
+import { useActualizacion } from './useActualizacion.ts'
 import { useWakeLock } from './useWakeLock.ts'
 
 const CLAVE_SOLO_MUSICA = 'dj_solo_musica'
@@ -16,6 +18,14 @@ const CLAVE_WAKELOCK = 'dj_wakelock'
 
 const claseBoton =
   'min-h-11 px-4 rounded-lg bg-neutral-800 active:bg-neutral-700 text-white font-medium select-none disabled:opacity-40'
+
+const CLASE_INSIGNIA: Record<ColorInsignia, string> = {
+  verde: 'bg-green-600',
+  ambar: 'bg-amber-600',
+  gris: 'bg-neutral-700',
+  violeta: 'bg-violet-600',
+  rojo: 'bg-red-600',
+}
 
 const ETIQUETA_ESTADO: Record<EstadoDeck, string> = {
   libre: 'Libre',
@@ -69,19 +79,16 @@ function TarjetaDeck({
   onEntrada,
   onDescartar,
 }: PropsTarjeta) {
-  const insignia = esActual ? 'SONANDO' : datos.estado === 'libre' ? 'LIBRE' : 'SIGUIENTE'
-  const colorInsignia = esActual
-    ? 'bg-green-600'
-    : datos.estado === 'libre'
-      ? 'bg-neutral-700'
-      : 'bg-violet-600'
+  const insignia = insigniaDeck(esActual, datos.estado)
   const progreso = tiempo.total > 0 ? Math.min(100, (tiempo.actual / tiempo.total) * 100) : 0
 
   return (
     <section className={`${orden} rounded-xl bg-neutral-900 p-3 flex flex-col gap-2`}>
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-neutral-300">Deck {id}</h2>
-        <span className={`${colorInsignia} rounded px-2 py-1 text-xs font-bold`}>{insignia}</span>
+        <span className={`${CLASE_INSIGNIA[insignia.color]} rounded px-2 py-1 text-xs font-bold`}>
+          {insignia.texto}
+        </span>
       </div>
       {/* Siempre visible y de 200 px de alto como mínimo: lo exige YouTube. */}
       <div
@@ -149,6 +156,25 @@ export default function App() {
 
   const motor = useMotorDj(duracionConfigS)
   const wake = useWakeLock(wakeHab && motor.actual !== null)
+  const { hayVersionNueva, actualizar } = useActualizacion()
+  const versionAnunciada = useRef(false)
+  const puedeActualizarSola = sePuedeActualizar(
+    [motor.decks.A.estado, motor.decks.B.estado],
+    motor.fase,
+  )
+
+  // Solo se recarga sola si no hay música ni nada preparado.
+  useEffect(() => {
+    if (!hayVersionNueva) return
+    if (!versionAnunciada.current) {
+      versionAnunciada.current = true
+      registrar('Versión nueva detectada')
+    }
+    if (puedeActualizarSola) {
+      registrar('Actualizando la app')
+      actualizar()
+    }
+  }, [hayVersionNueva, puedeActualizarSola, actualizar])
 
   const [consulta, setConsulta] = useState('')
   const [buscando, setBuscando] = useState(false)
@@ -190,6 +216,10 @@ export default function App() {
   const buscar = async () => {
     const q = consulta.trim()
     if (!q || buscando) return
+    if (mezclaOcupada) {
+      setErrorBusqueda('Esperá que termine la mezcla para agregar otro tema.')
+      return
+    }
     const idVideo = extraerIdVideo(q)
     if (idVideo) {
       await agregarPorLink(idVideo)
@@ -382,6 +412,14 @@ export default function App() {
         )}
       </section>
 
+      {hayVersionNueva && !puedeActualizarSola && (
+        <div className="order-first flex items-center justify-between gap-2 rounded-lg bg-violet-900/70 p-3 text-sm">
+          <span>Hay una versión nueva de la app. Actualizar corta la música.</span>
+          <button className={claseBoton} onClick={actualizar}>
+            Actualizar ahora
+          </button>
+        </div>
+      )}
       {motor.aviso && (
         <p className="rounded-lg bg-red-900/60 p-3 text-sm">{motor.aviso}</p>
       )}

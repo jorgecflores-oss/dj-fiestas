@@ -5,7 +5,9 @@ import {
   extraerIdVideo,
   formatoTiempo,
   gananciasPotenciaConstante,
+  insigniaDeck,
   parseDuracionISO,
+  sePuedeActualizar,
 } from './utilidades.ts'
 
 describe('gananciasPotenciaConstante', () => {
@@ -106,5 +108,38 @@ describe('formatoTiempo', () => {
   it('tolera valores inválidos', () => {
     expect(formatoTiempo(NaN)).toBe('0:00')
     expect(formatoTiempo(-5)).toBe('0:00')
+  })
+})
+
+describe('sePuedeActualizar', () => {
+  it('permite actualizar con todo libre y sin mezcla', () => {
+    expect(sePuedeActualizar(['libre', 'libre'], 'idle')).toBe(true)
+  })
+
+  it('no permite con un deck preparado o sonando', () => {
+    expect(sePuedeActualizar(['libre', 'listo'], 'idle')).toBe(false)
+    expect(sePuedeActualizar(['sonando', 'libre'], 'idle')).toBe(false)
+  })
+
+  it('no permite durante una mezcla', () => {
+    expect(sePuedeActualizar(['libre', 'libre'], 'rampa')).toBe(false)
+  })
+})
+
+describe('insigniaDeck', () => {
+  it('aplica las reglas en orden', () => {
+    expect(insigniaDeck(true, 'error')).toEqual({ texto: 'ERROR', color: 'rojo' })
+    expect(insigniaDeck(false, 'libre')).toEqual({ texto: 'LIBRE', color: 'gris' })
+    expect(insigniaDeck(true, 'sonando')).toEqual({ texto: 'SONANDO', color: 'verde' })
+    expect(insigniaDeck(true, 'pausado')).toEqual({ texto: 'EN PAUSA', color: 'ambar' })
+    expect(insigniaDeck(true, 'terminado')).toEqual({ texto: 'TERMINADO', color: 'gris' })
+    expect(insigniaDeck(true, 'listo')).toEqual({ texto: 'SONANDO', color: 'verde' })
+    expect(insigniaDeck(false, 'sonando')).toEqual({ texto: 'ENTRANDO', color: 'violeta' })
+    expect(insigniaDeck(false, 'listo')).toEqual({ texto: 'SIGUIENTE', color: 'violeta' })
+  })
+
+  it('el error y libre ganan sobre esActual', () => {
+    expect(insigniaDeck(false, 'error').texto).toBe('ERROR')
+    expect(insigniaDeck(true, 'libre').texto).toBe('LIBRE')
   })
 })

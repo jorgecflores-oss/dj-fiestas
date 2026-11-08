@@ -51,6 +51,29 @@ export function formatoTiempo(s: number): string {
   return `${m}:${seg}`
 }
 
+// Solo se actualiza la app sola si no hay música ni nada preparado.
+export function sePuedeActualizar(estados: string[], fase: string): boolean {
+  return fase === 'idle' && estados.every((e) => e === 'libre')
+}
+
+export type ColorInsignia = 'verde' | 'ambar' | 'gris' | 'violeta' | 'rojo'
+
+// Insignia de la tarjeta según el estado real del deck.
+export function insigniaDeck(
+  esActual: boolean,
+  estado: string,
+): { texto: string; color: ColorInsignia } {
+  if (estado === 'error') return { texto: 'ERROR', color: 'rojo' }
+  if (estado === 'libre') return { texto: 'LIBRE', color: 'gris' }
+  if (esActual) {
+    if (estado === 'pausado') return { texto: 'EN PAUSA', color: 'ambar' }
+    if (estado === 'terminado') return { texto: 'TERMINADO', color: 'gris' }
+    return { texto: 'SONANDO', color: 'verde' }
+  }
+  if (estado === 'sonando') return { texto: 'ENTRANDO', color: 'violeta' }
+  return { texto: 'SIGUIENTE', color: 'violeta' }
+}
+
 export function extraerIdVideo(texto: string): string | null {
   const t = texto.trim()
   if (/^[\w-]{11}$/.test(t)) return t
