@@ -3,7 +3,12 @@ export interface Reproductor {
   playVideo(): void
   pauseVideo(): void
   cueVideoById(idVideo: string): void
-  loadVideoById(idVideo: string): void
+  loadVideoById(idVideo: string, inicioS?: number): void
+  mute(): void
+  unMute(): void
+  stopVideo(): void
+  seekTo(segundos: number, permitirBuscar: boolean): void
+  getVideoData(): { video_id: string; title: string; author: string }
   setVolume(volumen: number): void
   getVolume(): number
   setPlaybackRate(velocidad: number): void
@@ -55,44 +60,4 @@ export function cargarApiYouTube(): Promise<void> {
     document.head.appendChild(script)
   })
   return promesaApi
-}
-
-export function extraerIdVideo(texto: string): string | null {
-  const t = texto.trim()
-  if (/^[\w-]{11}$/.test(t)) return t
-  let url: URL
-  try {
-    url = new URL(/^https?:\/\//i.test(t) ? t : `https://${t}`)
-  } catch {
-    return null
-  }
-  const host = url.hostname.replace(/^www\.|^m\./, '')
-  let candidato: string | null = null
-  if (host === 'youtu.be') {
-    candidato = url.pathname.split('/')[1] ?? null
-  } else if (host === 'youtube.com' || host === 'music.youtube.com') {
-    const partes = url.pathname.split('/')
-    if (url.pathname === '/watch') candidato = url.searchParams.get('v')
-    else if (partes[1] === 'shorts' || partes[1] === 'embed') candidato = partes[2] ?? null
-  }
-  return candidato && /^[\w-]{11}$/.test(candidato) ? candidato : null
-}
-
-export function nombreEstado(n: number): string {
-  switch (n) {
-    case -1:
-      return 'sin iniciar'
-    case 0:
-      return 'terminado'
-    case 1:
-      return 'reproduciendo'
-    case 2:
-      return 'en pausa'
-    case 3:
-      return 'cargando'
-    case 5:
-      return 'en cola'
-    default:
-      return `desconocido (${n})`
-  }
 }

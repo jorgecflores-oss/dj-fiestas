@@ -26,3 +26,15 @@ npm run build
 
 GitHub Pages por GitHub Actions. Cada push a `main` publica en
 `https://jorgecflores-oss.github.io/dj-fiestas/`.
+
+## Clave de la API
+
+La búsqueda usa la API de datos de YouTube. La clave se pega en **Ajustes** y se guarda solo en el teléfono
+(localStorage): no va en el código ni en el repositorio. Sin clave no hay búsqueda, pero igual se pueden
+pegar links o IDs de YouTube para agregar temas.
+
+## Pruebas
+
+```
+npm test
+```
