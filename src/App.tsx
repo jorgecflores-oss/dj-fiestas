@@ -155,7 +155,7 @@ export default function App() {
 
   const [duracionConfigS, setDuracionConfigS] = useState(() => {
     const n = Number(leerTexto(CLAVE_CROSSFADE))
-    return n >= 2 && n <= 30 ? n : 12
+    return n >= 1 && n <= 20 ? n : 5
   })
   const [soloMusica, setSoloMusica] = useState(() => leerTexto(CLAVE_SOLO_MUSICA) !== '0')
   const [wakeHab, setWakeHab] = useState(() => leerTexto(CLAVE_WAKELOCK) !== '0')
@@ -266,6 +266,7 @@ export default function App() {
       duracionS: r.duracionS || null,
     })
     setColapsado(true)
+    setConsulta('')
     setBuscadorAbierto(false)
   }
 
@@ -348,8 +349,9 @@ export default function App() {
             Crossfade
             <input
               type="range"
-              min={2}
-              max={30}
+              min={1}
+              max={20}
+              step={1}
               value={duracionConfigS}
               onChange={(e) => {
                 const n = Number(e.target.value)
@@ -400,6 +402,10 @@ export default function App() {
           <input
             value={consulta}
             onChange={(e) => setConsulta(e.target.value)}
+            onFocus={() => {
+              setConsulta('')
+              setErrorBusqueda('')
+            }}
             placeholder="Buscá un tema o pegá un link"
             enterKeyHint="search"
             className="min-h-11 flex-1 min-w-0 rounded-lg bg-neutral-800 px-3"
