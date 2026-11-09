@@ -10,11 +10,13 @@ import Sirena from './Sirena.tsx'
 import type { ColorInsignia } from './utilidades.ts'
 import { extraerIdVideo, formatoTiempo, insigniaDeck, sePuedeActualizar } from './utilidades.ts'
 import { useActualizacion } from './useActualizacion.ts'
+import { usePantallaActiva } from './usePantallaActiva.ts'
 import { useWakeLock } from './useWakeLock.ts'
 
 const CLAVE_SOLO_MUSICA = 'dj_solo_musica'
 const CLAVE_CROSSFADE = 'dj_crossfade_s'
 const CLAVE_WAKELOCK = 'dj_wakelock'
+const CLAVE_ESCENARIO = 'dj_modo_escenario'
 
 const claseBoton =
   'min-h-11 px-4 rounded-lg bg-neutral-800 active:bg-neutral-700 text-white font-medium select-none disabled:opacity-40'
@@ -63,6 +65,7 @@ interface PropsTarjeta {
   tiempo: { actual: number; total: number }
   contenedor: RefObject<HTMLDivElement | null>
   orden: string
+  escenario: boolean
   onPlayPausa: () => void
   onEntrada: (delta: number) => void
   onDescartar: () => void
@@ -75,6 +78,7 @@ function TarjetaDeck({
   tiempo,
   contenedor,
   orden,
+  escenario,
   onPlayPausa,
   onEntrada,
   onDescartar,
@@ -117,7 +121,7 @@ function TarjetaDeck({
             {datos.estado === 'sonando' ? 'Pausa' : 'Play'}
           </button>
         )}
-        {!esActual && datos.estado === 'listo' && (
+        {!escenario && !esActual && datos.estado === 'listo' && (
           <>
             <button className={claseBoton} onClick={() => onEntrada(-5)}>
               -5 s
@@ -131,14 +135,16 @@ function TarjetaDeck({
             <span className="self-center text-sm text-neutral-400">Entra en {datos.entradaS} s</span>
           </>
         )}
-        {!esActual && datos.estado !== 'libre' && (
+        {!escenario && !esActual && datos.estado !== 'libre' && (
           <button className={claseBoton} onClick={onDescartar}>
             Descartar
           </button>
         )}
-        <button className={claseBoton} onClick={() => registrar(`ANUNCIO visto en deck ${id}`)}>
-          Anuncio
-        </button>
+        {!escenario && (
+          <button className={claseBoton} onClick={() => registrar(`ANUNCIO visto en deck ${id}`)}>
+            Anuncio
+          </button>
+        )}
       </div>
     </section>
   )
@@ -155,7 +161,19 @@ export default function App() {
   const [wakeHab, setWakeHab] = useState(() => leerTexto(CLAVE_WAKELOCK) !== '0')
 
   const motor = useMotorDj(duracionConfigS)
-  const wake = useWakeLock(wakeHab && motor.actual !== null)
+  const haySonido =
+    motor.decks.A.estado === 'sonando' || motor.decks.B.estado === 'sonando' || motor.fase !== 'idle'
+  const pantallaActiva = usePantallaActiva(haySonido)
+  const wake = useWakeLock(wakeHab && pantallaActiva)
+  const pantallaPrevia = useRef(pantallaActiva)
+  useEffect(() => {
+    if (pantallaPrevia.current && !pantallaActiva) {
+      registrar('Pantalla: se libera por 10 min sin sonido')
+    }
+    pantallaPrevia.current = pantallaActiva
+  }, [pantallaActiva])
+  const [modoEscenario, setModoEscenario] = useState(() => leerTexto(CLAVE_ESCENARIO) === '1')
+  const [buscadorAbierto, setBuscadorAbierto] = useState(false)
   const { hayVersionNueva, actualizar } = useActualizacion()
   const versionAnunciada = useRef(false)
   const puedeActualizarSola = sePuedeActualizar(
@@ -211,6 +229,7 @@ export default function App() {
     motor.elegirTema(tema)
     setResultados([])
     setConsulta('')
+    setBuscadorAbierto(false)
   }
 
   const buscar = async () => {
@@ -247,6 +266,7 @@ export default function App() {
       duracionS: r.duracionS || null,
     })
     setColapsado(true)
+    setBuscadorAbierto(false)
   }
 
   const guardarClaveApi = () => {
@@ -274,18 +294,34 @@ export default function App() {
     return esPrimero ? 'order-1' : 'order-3'
   }
   const terminoActual = actual !== null && sig !== null && decks[actual].estado === 'terminado' && decks[sig].estado === 'listo'
+  const alternarEscenario = () => {
+    const nuevo = !modoEscenario
+    setModoEscenario(nuevo)
+    setBuscadorAbierto(false)
+    guardarTexto(CLAVE_ESCENARIO, nuevo ? '1' : '0')
+    registrar(`Modo escenario: ${nuevo ? 'activado' : 'desactivado'}`)
+  }
   const ultimas = [...lineas].reverse().slice(0, 200)
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white p-3 flex flex-col gap-4 max-w-xl mx-auto">
+    <main
+      className={`min-h-screen ${modoEscenario ? 'bg-black' : 'bg-neutral-950'} text-white p-3 flex flex-col gap-4 max-w-xl mx-auto`}
+    >
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-violet-400">DJ Fiestas</h1>
-        <button className={claseBoton} onClick={() => setAjustesAbiertos((v) => !v)}>
-          Ajustes
-        </button>
+        <div className="flex gap-2">
+          <button className={claseBoton} onClick={alternarEscenario}>
+            {modoEscenario ? 'Salir de escenario' : 'Escenario'}
+          </button>
+          {!modoEscenario && (
+            <button className={claseBoton} onClick={() => setAjustesAbiertos((v) => !v)}>
+              Ajustes
+            </button>
+          )}
+        </div>
       </header>
 
-      {ajustesAbiertos && (
+      {!modoEscenario && ajustesAbiertos && (
         <section className="rounded-xl bg-neutral-900 p-3 flex flex-col gap-3">
           <h2 className="font-bold text-violet-400">Ajustes</h2>
           <div className="flex flex-col gap-2">
@@ -344,6 +380,15 @@ export default function App() {
         </section>
       )}
 
+      {modoEscenario && (
+        <button
+          className={`${claseBoton} min-h-16 text-lg bg-violet-600 active:bg-violet-500`}
+          onClick={() => setBuscadorAbierto((v) => !v)}
+        >
+          Buscar siguiente
+        </button>
+      )}
+      {(!modoEscenario || buscadorAbierto) && (
       <section className="rounded-xl bg-neutral-900 p-3 flex flex-col gap-3">
         <form
           className="flex gap-2"
@@ -410,7 +455,13 @@ export default function App() {
             ))}
           </ul>
         )}
+        {modoEscenario && (
+          <button className={claseBoton} onClick={() => setBuscadorAbierto(false)}>
+            Cerrar
+          </button>
+        )}
       </section>
+      )}
 
       {hayVersionNueva && !puedeActualizarSola && (
         <div className="order-first flex items-center justify-between gap-2 rounded-lg bg-violet-900/70 p-3 text-sm">
@@ -440,6 +491,7 @@ export default function App() {
             tiempo={motor.tiempos[id]}
             contenedor={motor.contenedores[id]}
             orden={ordenDe(id)}
+            escenario={modoEscenario}
             onPlayPausa={motor.alternarPlayPausa}
             onEntrada={(d) => motor.ajustarEntrada(id, d)}
             onDescartar={() => motor.descartar(id)}
@@ -449,7 +501,7 @@ export default function App() {
           <button
             disabled={!puedeCrossfade}
             onClick={() => void motor.hacerCrossfade()}
-            className="min-h-16 rounded-xl bg-violet-600 active:bg-violet-500 text-xl font-bold disabled:opacity-40"
+            className={`${modoEscenario ? 'min-h-20' : 'min-h-16'} rounded-xl bg-violet-600 active:bg-violet-500 text-xl font-bold disabled:opacity-40`}
           >
             CROSSFADE
           </button>
@@ -480,6 +532,7 @@ export default function App() {
         </div>
       </div>
 
+      {!modoEscenario && (
       <label className="flex items-center gap-3 text-sm text-neutral-300">
         Volumen
         <input
@@ -492,12 +545,16 @@ export default function App() {
         />
         <span className="w-8 text-right">{motor.volumenMaster}</span>
       </label>
+      )}
 
+      {!modoEscenario && (
       <section className="rounded-xl bg-neutral-900 p-3 flex flex-col gap-3">
         <h2 className="font-bold text-violet-400">Efectos (en construcción)</h2>
         <Sirena />
       </section>
+      )}
 
+      {!modoEscenario && (
       <section className="rounded-xl bg-neutral-900 p-3 flex flex-col gap-2">
         <button className={claseBoton} onClick={() => setDiagAbierto((v) => !v)}>
           Diagnóstico {diagAbierto ? '▲' : '▼'}
@@ -518,6 +575,7 @@ export default function App() {
           </>
         )}
       </section>
+      )}
     </main>
   )
 }

@@ -56,6 +56,15 @@ export function sePuedeActualizar(estados: string[], fase: string): boolean {
   return fase === 'idle' && estados.every((e) => e === 'libre')
 }
 
+// Mantiene la pantalla prendida si suena algo o si el último sonido fue hace poco.
+export function debeMantenerPantalla(
+  haySonido: boolean,
+  msDesdeUltimoSonido: number,
+  graciaMs: number,
+): boolean {
+  return haySonido || msDesdeUltimoSonido < graciaMs
+}
+
 export type ColorInsignia = 'verde' | 'ambar' | 'gris' | 'violeta' | 'rojo'
 
 // Insignia de la tarjeta según el estado real del deck.

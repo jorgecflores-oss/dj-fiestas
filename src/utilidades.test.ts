@@ -3,6 +3,7 @@ import {
   decodificarHtml,
   duracionCrossfade,
   extraerIdVideo,
+  debeMantenerPantalla,
   formatoTiempo,
   gananciasPotenciaConstante,
   insigniaDeck,
@@ -141,5 +142,21 @@ describe('insigniaDeck', () => {
   it('el error y libre ganan sobre esActual', () => {
     expect(insigniaDeck(false, 'error').texto).toBe('ERROR')
     expect(insigniaDeck(true, 'libre').texto).toBe('LIBRE')
+  })
+})
+
+describe('debeMantenerPantalla', () => {
+  const gracia = 600000
+  it('mantiene la pantalla si suena', () => {
+    expect(debeMantenerPantalla(true, 999999999, gracia)).toBe(true)
+  })
+
+  it('mantiene la pantalla dentro de la gracia', () => {
+    expect(debeMantenerPantalla(false, gracia - 1, gracia)).toBe(true)
+  })
+
+  it('la libera al llegar a la gracia o pasarla', () => {
+    expect(debeMantenerPantalla(false, gracia, gracia)).toBe(false)
+    expect(debeMantenerPantalla(false, gracia + 1, gracia)).toBe(false)
   })
 })
